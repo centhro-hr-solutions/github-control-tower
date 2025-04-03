@@ -1,0 +1,68 @@
+﻿name: Reusable Promote Workflow
+
+on:
+  workflow_call:
+    inputs:
+      image_name:
+        required: true
+        type: string
+      registry:
+        required: true
+        type: string
+      registry_user:
+        required: true
+        type: string
+      promote_to:
+        required: true
+        type: string  # beta or production
+    secrets:
+      GH_TOKEN:
+        required: true
+
+jobs:
+  promote:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Install dependencies
+        run: |
+              sudo apt-get update && sudo apt-get install jq -y
+
+      - name: Fetch latest alpha tag from GHCR
+        id: fetch
+        run: |
+              IMAGE=${{ inputs.registry }}/${{ inputs.image_name }}
+              echo "Fetching latest alpha tag for $IMAGE..."
+              
+              tags=$(curl -s -H "Authorization: Bearer ${{ secrets.GH_TOKEN }}" \
+                https://ghcr.io/v2/${{ inputs.image_name }}/tags/list \
+                | jq -r '.tags[]' | grep 'alpha' | sort -V)
+              
+              LATEST=$(echo "$tags" | tail -n1)
+              echo "Latest alpha tag: $LATEST"
+              
+              echo "from_tag=$LATEST" >> $GITHUB_OUTPUT
+
+      - name: Promote to new tag
+        env:
+          FROM_TAG: ${{ steps.fetch.outputs.from_tag }}
+        run: |
+              TO_TAG=""
+              if [[ "${{ inputs.promote_to }}" == "beta" ]]; then
+                TO_TAG=$(echo $FROM_TAG | sed 's/alpha/beta/')
+              elif [[ "${{ inputs.promote_to }}" == "production" ]]; then
+                TO_TAG=$(echo $FROM_TAG | sed 's/-alpha\..*//; s/-beta\..*//')
+              else
+                echo "❌ Invalid promote_to value"; exit 1
+              fi
+              
+              echo "Promoting $FROM_TAG → $TO_TAG"
+              
+              docker pull ${{ inputs.registry }}/${{ inputs.image_name }}:$FROM_TAG
+              
+              echo "${{ secrets.GH_TOKEN }}" | docker login ghcr.io -u ${{ inputs.registry_user }} --password-stdin
+              
+              docker tag ${{ inputs.registry }}/${{ inputs.image_name }}:$FROM_TAG \
+                         ${{ inputs.registry }}/${{ inputs.image_name }}:$TO_TAG
+              
+              docker push ${{ inputs.registry }}/${{ inputs.image_name }}:$TO_TAG

@@ -55,10 +55,31 @@ jobs:
               done
 
   promote:
-    if: ${{ inputs.promote == 'true' }}
-    needs: trigger-builds
+    if:      ${{ inputs.promote == 'true' }}
+    needs:   trigger-builds
     runs-on: ubuntu-latest
 
     steps:
-      - name: Promote services (future logic)
-        run: echo "🚧 Promotion step not implemented yet. Add your logic here."
+      - name: Install jq
+        run:  sudo apt-get install jq -y
+
+      - name: Trigger promotion in microservices
+        env:
+          GH_PAT:        ${{ secrets.GH_PAT }}
+          SERVICES_JSON: ${{ inputs.services_json }}
+        run:  |
+              echo "Promoting microservices from alpha → beta..."
+              
+              for service in $(echo "$SERVICES_JSON" | jq -c '.[]'); do
+                repo=$(echo "$service" | jq -r '.repo')
+                image=$(basename "$repo")
+                workflow="promote.yaml"
+              
+                echo "🚀 Triggering promotion for $image in $repo..."
+              
+                curl -s -X POST https://api.github.com/repos/$repo/actions/workflows/$workflow/dispatches \
+                  -H "Authorization: Bearer $GH_PAT" \
+                  -H "Accept: application/vnd.github+json" \
+                  -d '{"ref":"main","inputs":{"promote_to":"beta"}}'
+              done
+  

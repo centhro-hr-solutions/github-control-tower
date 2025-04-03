@@ -17,7 +17,7 @@ on:
         type: string
       promote_to:
         required: true
-        type: string  # beta or production
+        type: string  # Allowed: beta, production
     secrets:
       GH_TOKEN:
         required: true
@@ -34,7 +34,11 @@ jobs:
                 exit 1
               fi
 
-      - name: Promote Docker image
+      - name: Log in to GitHub Container Registry
+        run: |
+              echo "${{ secrets.GH_TOKEN }}" | docker login ghcr.io -u ${{ inputs.registry_user }} --password-stdin
+
+      - name: Promote Docker image tag
         run: |
               FROM_TAG="${{ inputs.from_tag }}"
               TO_TAG=""
@@ -48,8 +52,6 @@ jobs:
               echo "Promoting $FROM_TAG → $TO_TAG"
               
               docker pull ${{ inputs.registry }}/${{ inputs.image_name }}:$FROM_TAG
-              
-              echo "${{ secrets.GH_TOKEN }}" | docker login ghcr.io -u ${{ inputs.registry_user }} --password-stdin
               
               docker tag ${{ inputs.registry }}/${{ inputs.image_name }}:$FROM_TAG \
                          ${{ inputs.registry }}/${{ inputs.image_name }}:$TO_TAG

@@ -14,7 +14,10 @@ on:
         type: string
       promote_to:
         required: true
-        type: string  # beta or production
+        type: choice
+        options:
+          - beta
+          - production
     secrets:
       GH_TOKEN:
         required: true
@@ -24,36 +27,25 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Install dependencies
+      - name: Determine source tag (auto-pick from GitVersion)
+        id: resolve
         run: |
-              sudo apt-get update && sudo apt-get install jq -y
-
-      - name: Fetch latest alpha tag from GHCR
-        id: fetch
-        run: |
-              IMAGE=${{ inputs.registry }}/${{ inputs.image_name }}
-              echo "Fetching latest alpha tag for $IMAGE..."
-              
-              tags=$(curl -s -H "Authorization: Bearer ${{ secrets.GH_TOKEN }}" \
-                https://ghcr.io/v2/${{ inputs.image_name }}/tags/list \
-                | jq -r '.tags[]' | grep 'alpha' | sort -V)
-              
-              LATEST=$(echo "$tags" | tail -n1)
-              echo "Latest alpha tag: $LATEST"
-              
-              echo "from_tag=$LATEST" >> $GITHUB_OUTPUT
+              # Automatically using the provided tag (from GitVersion output in the service workflow)
+              echo "Using provided tag: ${{ inputs.promote_to }}"
+              FROM_TAG="${{ inputs.promote_to }}"
+              echo "from_tag=$FROM_TAG" >> $GITHUB_OUTPUT
 
       - name: Promote to new tag
-        env:
-          FROM_TAG: ${{ steps.fetch.outputs.from_tag }}
         run: |
+              # Automatically determine the correct version based on the 'FROM_TAG' variable
               TO_TAG=""
-              if [[ "${{ inputs.promote_to }}" == "beta" ]]; then
+              
+              if [[ "$FROM_TAG" == *"alpha"* ]]; then
                 TO_TAG=$(echo $FROM_TAG | sed 's/alpha/beta/')
-              elif [[ "${{ inputs.promote_to }}" == "production" ]]; then
+              elif [[ "$FROM_TAG" == *"beta"* ]]; then
                 TO_TAG=$(echo $FROM_TAG | sed 's/-alpha\..*//; s/-beta\..*//')
               else
-                echo "❌ Invalid promote_to value"; exit 1
+                echo "❌ Invalid tag format"; exit 1
               fi
               
               echo "Promoting $FROM_TAG → $TO_TAG"

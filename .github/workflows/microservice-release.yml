@@ -35,7 +35,7 @@ jobs:
 
       - name: Trigger builds
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_PAT: ${{ secrets.GH_PAT }}
           SERVICES_JSON: ${{ inputs.services_json }}
         run: |
               echo "Triggering build workflows in microservices..."
@@ -49,7 +49,7 @@ jobs:
                 echo "🚀 Triggering $workflow in $repo on $ref"
               
                 curl -s -X POST https://api.github.com/repos/${repo}/actions/workflows/${workflow}/dispatches \
-                  -H "Authorization: Bearer $GITHUB_TOKEN" \
+                  -H "Authorization: Bearer $GH_PAT" \
                   -H "Accept: application/vnd.github+json" \
                   -d "{\"ref\":\"$ref\"}"
               done

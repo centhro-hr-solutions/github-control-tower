@@ -76,11 +76,11 @@ jobs:
       - name: Login to GHCR
         run: echo ${{ secrets.GH_TOKEN }} | docker login ghcr.io -u ${{ inputs.registry_user }} --password-stdin
 
-      - name: Push
+      - name: Push image to GHCR
         run: docker push ${{ inputs.registry }}/${{ inputs.image_name }}:${{ needs.version.outputs.GitVersion_SemVer }}
 
   release:
-    name: Create Release
+    name: Create Release + Save Tag
     needs: [version, build]
     runs-on: ubuntu-latest
     permissions:
@@ -89,6 +89,7 @@ jobs:
     steps:
       - uses: actions/checkout@v3
         with:
+          token: ${{ secrets.GH_TOKEN }}  # ✅ Ensure we can push
           fetch-depth: 0
 
       - uses: actions/setup-dotnet@v4
@@ -121,7 +122,7 @@ jobs:
                     sha: context.sha
                   }) || true
 
-      - name: GitHub Release
+      - name: Create GitHub Release
         uses: ncipollo/release-action@v1
         with:
           skipIfReleaseExists: true
@@ -129,3 +130,14 @@ jobs:
           tag: v${{ needs.version.outputs.GitVersion_SemVer }}
           body: "${{ steps.changelog.outputs.clean_changelog }}\n\n### Docker image\n- [${{ needs.build.outputs.DockerImage }}](${{ needs.build.outputs.DockerImageUrl }})"
           makeLatest: true
+
+      - name: Save version to .latest-version
+        run: echo "${{ needs.version.outputs.GitVersion_SemVer }}" > .latest-version
+
+      - name: Commit and push .latest-version to calling repo
+        run: |
+              git config user.name "CI Bot"
+              git config user.email "ci@centhro.io"
+              git add .latest-version
+              git commit -m "ci: update latest version to ${{ needs.version.outputs.GitVersion_SemVer }}" || echo "No changes"
+              git push

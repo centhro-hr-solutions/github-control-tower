@@ -12,12 +12,12 @@ on:
       registry_user:
         required: true
         type: string
+      from_tag:
+        required: true
+        type: string
       promote_to:
         required: true
-        type: choice
-        options:
-          - beta
-          - production
+        type: string  # beta or production
     secrets:
       GH_TOKEN:
         required: true
@@ -27,25 +27,22 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Determine source tag (auto-pick from GitVersion)
-        id: resolve
+      - name: Validate promote_to input
         run: |
-              # Automatically using the provided tag (from GitVersion output in the service workflow)
-              echo "Using provided tag: ${{ inputs.promote_to }}"
-              FROM_TAG="${{ inputs.promote_to }}"
-              echo "from_tag=$FROM_TAG" >> $GITHUB_OUTPUT
+              if [[ "${{ inputs.promote_to }}" != "beta" && "${{ inputs.promote_to }}" != "production" ]]; then
+                echo "❌ Invalid promote_to value: ${{ inputs.promote_to }}"
+                exit 1
+              fi
 
-      - name: Promote to new tag
+      - name: Promote Docker image
         run: |
-              # Automatically determine the correct version based on the 'FROM_TAG' variable
+              FROM_TAG="${{ inputs.from_tag }}"
               TO_TAG=""
               
-              if [[ "$FROM_TAG" == *"alpha"* ]]; then
-                TO_TAG=$(echo $FROM_TAG | sed 's/alpha/beta/')
-              elif [[ "$FROM_TAG" == *"beta"* ]]; then
-                TO_TAG=$(echo $FROM_TAG | sed 's/-alpha\..*//; s/-beta\..*//')
-              else
-                echo "❌ Invalid tag format"; exit 1
+              if [[ "${{ inputs.promote_to }}" == "beta" ]]; then
+                TO_TAG=$(echo "$FROM_TAG" | sed 's/alpha/beta/')
+              elif [[ "${{ inputs.promote_to }}" == "production" ]]; then
+                TO_TAG=$(echo "$FROM_TAG" | sed 's/-alpha\..*//; s/-beta\..*//')
               fi
               
               echo "Promoting $FROM_TAG → $TO_TAG"

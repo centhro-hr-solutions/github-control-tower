@@ -49,7 +49,7 @@ jobs:
                 echo "🚀 Triggering $workflow in $repo on $ref"
               
                 curl -s -X POST https://api.github.com/repos/${repo}/actions/workflows/${workflow}/dispatches \
-                  -H "Authorization: token $GITHUB_TOKEN" \
+                  -H "Authorization: Bearer $GITHUB_TOKEN" \
                   -H "Accept: application/vnd.github+json" \
                   -d "{\"ref\":\"$ref\"}"
               done

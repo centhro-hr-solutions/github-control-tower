@@ -135,9 +135,11 @@ jobs:
         run: echo "${{ needs.version.outputs.GitVersion_SemVer }}" > .latest-version
 
       - name: Commit and push .latest-version to calling repo
-        run: |
+        run:  |
               git config user.name "CI Bot"
               git config user.email "ci@centhro.io"
+              git switch $(git rev-parse --abbrev-ref HEAD)  # Ensure correct branch
               git add .latest-version
               git commit -m "ci: update latest version to ${{ needs.version.outputs.GitVersion_SemVer }}" || echo "No changes"
               git push
+      

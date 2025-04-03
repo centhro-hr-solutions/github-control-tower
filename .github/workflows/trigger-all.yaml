@@ -1,0 +1,8 @@
+﻿on:
+  workflow_dispatch:
+    inputs:
+      promote:
+        description: 'Promote all after build?'
+        required: false
+        type: boolean
+        default: false

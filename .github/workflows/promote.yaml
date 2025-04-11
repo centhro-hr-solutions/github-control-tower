@@ -1,59 +1,59 @@
-﻿name: Reusable Promote Workflow
+# ﻿name: Reusable Promote Workflow
 
-on:
-  workflow_call:
-    inputs:
-      image_name:
-        required: true
-        type: string
-      registry:
-        required: true
-        type: string
-      registry_user:
-        required: true
-        type: string
-      from_tag:
-        required: true
-        type: string
-      promote_to:
-        required: true
-        type: string  # Allowed: beta, production
-    secrets:
-      GH_TOKEN:
-        required: true
+# on:
+#   workflow_call:
+#     inputs:
+#       image_name:
+#         required: true
+#         type: string
+#       registry:
+#         required: true
+#         type: string
+#       registry_user:
+#         required: true
+#         type: string
+#       from_tag:
+#         required: true
+#         type: string
+#       promote_to:
+#         required: true
+#         type: string  # Allowed: beta, production
+#     secrets:
+#       GH_TOKEN:
+#         required: true
 
-jobs:
-  promote:
-    runs-on: ubuntu-latest
+# jobs:
+#   promote:
+#     runs-on: ubuntu-latest
 
-    steps:
-      - name: Validate promote_to input
-        run: |
-              if [[ "${{ inputs.promote_to }}" != "beta" && "${{ inputs.promote_to }}" != "production" ]]; then
-                echo "❌ Invalid promote_to value: ${{ inputs.promote_to }}"
-                exit 1
-              fi
+#     steps:
+#       - name: Validate promote_to input
+#         run: |
+#               if [[ "${{ inputs.promote_to }}" != "beta" && "${{ inputs.promote_to }}" != "production" ]]; then
+#                 echo "❌ Invalid promote_to value: ${{ inputs.promote_to }}"
+#                 exit 1
+#               fi
 
-      - name: Log in to GitHub Container Registry
-        run: |
-              echo "${{ secrets.GH_TOKEN }}" | docker login ghcr.io -u ${{ inputs.registry_user }} --password-stdin
+#       - name: Log in to GitHub Container Registry
+#         run: |
+#               echo "${{ secrets.GH_TOKEN }}" | docker login ghcr.io -u ${{ inputs.registry_user }} --password-stdin
 
-      - name: Promote Docker image tag
-        run: |
-              FROM_TAG="${{ inputs.from_tag }}"
-              TO_TAG=""
+#       - name: Promote Docker image tag
+#         run: |
+#               FROM_TAG="${{ inputs.from_tag }}"
+#               TO_TAG=""
               
-              if [[ "${{ inputs.promote_to }}" == "beta" ]]; then
-                TO_TAG=$(echo "$FROM_TAG" | sed 's/alpha/beta/')
-              elif [[ "${{ inputs.promote_to }}" == "production" ]]; then
-                TO_TAG=$(echo "$FROM_TAG" | sed 's/-alpha\..*//; s/-beta\..*//')
-              fi
+#               if [[ "${{ inputs.promote_to }}" == "beta" ]]; then
+#                 TO_TAG=$(echo "$FROM_TAG" | sed 's/alpha/beta/')
+#               elif [[ "${{ inputs.promote_to }}" == "production" ]]; then
+#                 TO_TAG=$(echo "$FROM_TAG" | sed 's/-alpha\..*//; s/-beta\..*//')
+#               fi
               
-              echo "Promoting $FROM_TAG → $TO_TAG"
+#               echo "Promoting $FROM_TAG → $TO_TAG"
               
-              docker pull ${{ inputs.registry }}/${{ inputs.image_name }}:$FROM_TAG
+#               docker pull ${{ inputs.registry }}/${{ inputs.image_name }}:$FROM_TAG
               
-              docker tag ${{ inputs.registry }}/${{ inputs.image_name }}:$FROM_TAG \
-                         ${{ inputs.registry }}/${{ inputs.image_name }}:$TO_TAG
+#               docker tag ${{ inputs.registry }}/${{ inputs.image_name }}:$FROM_TAG \
+#                          ${{ inputs.registry }}/${{ inputs.image_name }}:$TO_TAG
               
-              docker push ${{ inputs.registry }}/${{ inputs.image_name }}:$TO_TAG
+#               docker push ${{ inputs.registry }}/${{ inputs.image_name }}:$TO_TAG

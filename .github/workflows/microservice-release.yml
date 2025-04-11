@@ -1,84 +1,84 @@
-﻿name: Trigger All Microservice Builds
+# ﻿name: Trigger All Microservice Builds
 
-on:
-  workflow_dispatch:
-    inputs:
-      services_json:
-        description: >
-                     JSON array of services to trigger. Each item should have:
-                     - repo: full GitHub repo
-                     - workflow: workflow file name (e.g., release.yml)
-                     - ref: branch or tag (e.g., main)
-        required: true
-        type: string
-        default: >
-                     [
-                       { "repo": "centhro-hr-solutions/api.accounts", "workflow": "release.yaml", "ref": "develop" },
-                       { "repo": "centhro-hr-solutions/Api.Approvals", "workflow": "release.yaml", "ref": "develop" },
-                       { "repo": "centhro-hr-solutions/Api.Assets", "workflow": "release.yaml", "ref": "develop" }
-                     ]
+# on:
+#   workflow_dispatch:
+#     inputs:
+#       services_json:
+#         description: >
+#                      JSON array of services to trigger. Each item should have:
+#                      - repo: full GitHub repo
+#                      - workflow: workflow file name (e.g., release.yml)
+#                      - ref: branch or tag (e.g., main)
+#         required: true
+#         type: string
+#         default: >
+#                      [
+#                        { "repo": "centhro-hr-solutions/api.accounts", "workflow": "release.yaml", "ref": "develop" },
+#                        { "repo": "centhro-hr-solutions/Api.Approvals", "workflow": "release.yaml", "ref": "develop" },
+#                        { "repo": "centhro-hr-solutions/Api.Assets", "workflow": "release.yaml", "ref": "develop" }
+#                      ]
 
-      promote:
-        description: 'Also trigger promote workflows after build?'
-        required: true
-        default: false
-        type: boolean
+#       promote:
+#         description: 'Also trigger promote workflows after build?'
+#         required: true
+#         default: false
+#         type: boolean
 
-jobs:
-  trigger-builds:
-    name: Trigger Microservice Builds
-    runs-on: ubuntu-latest
+# jobs:
+#   trigger-builds:
+#     name: Trigger Microservice Builds
+#     runs-on: ubuntu-latest
 
-    steps:
-      - name: Install jq
-        run: sudo apt-get install jq -y
+#     steps:
+#       - name: Install jq
+#         run: sudo apt-get install jq -y
 
-      - name: Trigger builds
-        env:
-          GH_PAT: ${{ secrets.GH_PAT }}
-          SERVICES_JSON: ${{ inputs.services_json }}
-        run: |
-              echo "Triggering build workflows in microservices..."
-              echo "Services: $SERVICES_JSON"
+#       - name: Trigger builds
+#         env:
+#           GH_PAT: ${{ secrets.GH_PAT }}
+#           SERVICES_JSON: ${{ inputs.services_json }}
+#         run: |
+#               echo "Triggering build workflows in microservices..."
+#               echo "Services: $SERVICES_JSON"
               
-              for service in $(echo "${SERVICES_JSON}" | jq -c '.[]'); do
-                repo=$(echo "$service" | jq -r '.repo')
-                workflow=$(echo "$service" | jq -r '.workflow')
-                ref=$(echo "$service" | jq -r '.ref')
+#               for service in $(echo "${SERVICES_JSON}" | jq -c '.[]'); do
+#                 repo=$(echo "$service" | jq -r '.repo')
+#                 workflow=$(echo "$service" | jq -r '.workflow')
+#                 ref=$(echo "$service" | jq -r '.ref')
               
-                echo "🚀 Triggering $workflow in $repo on $ref"
+#                 echo "🚀 Triggering $workflow in $repo on $ref"
               
-                curl -s -X POST https://api.github.com/repos/${repo}/actions/workflows/${workflow}/dispatches \
-                  -H "Authorization: Bearer $GH_PAT" \
-                  -H "Accept: application/vnd.github+json" \
-                  -d "{\"ref\":\"$ref\"}"
-              done
+#                 curl -s -X POST https://api.github.com/repos/${repo}/actions/workflows/${workflow}/dispatches \
+#                   -H "Authorization: Bearer $GH_PAT" \
+#                   -H "Accept: application/vnd.github+json" \
+#                   -d "{\"ref\":\"$ref\"}"
+#               done
 
-  promote-all:
-    name:    Promote All Microservices
-    if:      github.event_name == 'workflow_dispatch' && inputs.promote == true
-    runs-on: ubuntu-latest
-    needs:   trigger-builds
+#   promote-all:
+#     name:    Promote All Microservices
+#     if:      github.event_name == 'workflow_dispatch' && inputs.promote == true
+#     runs-on: ubuntu-latest
+#     needs:   trigger-builds
 
-    steps:
-      - name: Install jq
-        run:  sudo apt-get install jq -y
+#     steps:
+#       - name: Install jq
+#         run:  sudo apt-get install jq -y
 
-      - name: Trigger promotion workflows in microservices
-        env:
-          GH_PAT:        ${{ secrets.GH_PAT }}
-          SERVICES_JSON: ${{ inputs.services_json }}
-        run:  |
-              echo "Triggering promote.yaml in all services..."
+#       - name: Trigger promotion workflows in microservices
+#         env:
+#           GH_PAT:        ${{ secrets.GH_PAT }}
+#           SERVICES_JSON: ${{ inputs.services_json }}
+#         run:  |
+#               echo "Triggering promote.yaml in all services..."
               
-              for service in $(echo "$SERVICES_JSON" | jq -c '.[]'); do
-                repo=$(echo "$service" | jq -r '.repo')
-                workflow="promote.yaml"
+#               for service in $(echo "$SERVICES_JSON" | jq -c '.[]'); do
+#                 repo=$(echo "$service" | jq -r '.repo')
+#                 workflow="promote.yaml"
               
-                echo "🔁 Dispatching promote workflow in $repo..."
+#                 echo "🔁 Dispatching promote workflow in $repo..."
               
-                curl -s -X POST https://api.github.com/repos/${repo}/actions/workflows/${workflow}/dispatches \
-                  -H "Authorization: Bearer $GH_PAT" \
-                  -H "Accept: application/vnd.github+json" \
-                  -d '{"ref":"main","inputs":{"promote_to":"beta"}}'
-              done
+#                 curl -s -X POST https://api.github.com/repos/${repo}/actions/workflows/${workflow}/dispatches \
+#                   -H "Authorization: Bearer $GH_PAT" \
+#                   -H "Accept: application/vnd.github+json" \
+#                   -d '{"ref":"main","inputs":{"promote_to":"beta"}}'
+#               done

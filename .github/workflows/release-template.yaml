@@ -1,145 +1,145 @@
-﻿name: Reusable Release Workflow
+# ﻿name: Reusable Release Workflow
 
-on:
-  workflow_call:
-    inputs:
-      image_name:
-        required: true
-        type: string
-      registry:
-        required: true
-        type: string
-      registry_user:
-        required: true
-        type: string
-    secrets:
-      GH_TOKEN:
-        required: true
+# on:
+#   workflow_call:
+#     inputs:
+#       image_name:
+#         required: true
+#         type: string
+#       registry:
+#         required: true
+#         type: string
+#       registry_user:
+#         required: true
+#         type: string
+#     secrets:
+#       GH_TOKEN:
+#         required: true
 
-jobs:
-  test:
-    name: Run Tests
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout the repo
-        uses: actions/checkout@v3
+# jobs:
+#   test:
+#     name: Run Tests
+#     runs-on: ubuntu-latest
+#     steps:
+#       - name: Checkout the repo
+#         uses: actions/checkout@v3
 
-      - name: Build and Run Test Container
-        run: |
-              docker build \
-                --no-cache \
-                -f ${{ inputs.image_name }}.tests/Dockerfile \
-                -t ${{ inputs.image_name }}-tests .
-              docker run --rm ${{ inputs.image_name }}-tests
+#       - name: Build and Run Test Container
+#         run: |
+#               docker build \
+#                 --no-cache \
+#                 -f ${{ inputs.image_name }}.tests/Dockerfile \
+#                 -t ${{ inputs.image_name }}-tests .
+#               docker run --rm ${{ inputs.image_name }}-tests
 
-  version:
-    name: Determine version
-    runs-on: ubuntu-latest
-    needs: test
-    outputs:
-      branchName: ${{ steps.version_step.outputs.branchName }}
-      fullSemVer: ${{ steps.version_step.outputs.fullSemVer }}
-      GitVersion_BranchName: ${{ steps.version_step.outputs.GitVersion_BranchName }}
-      GitVersion_SemVer: ${{ steps.version_step.outputs.GitVersion_SemVer }}
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
+#   version:
+#     name: Determine version
+#     runs-on: ubuntu-latest
+#     needs: test
+#     outputs:
+#       branchName: ${{ steps.version_step.outputs.branchName }}
+#       fullSemVer: ${{ steps.version_step.outputs.fullSemVer }}
+#       GitVersion_BranchName: ${{ steps.version_step.outputs.GitVersion_BranchName }}
+#       GitVersion_SemVer: ${{ steps.version_step.outputs.GitVersion_SemVer }}
+#     steps:
+#       - uses: actions/checkout@v4
+#         with:
+#           fetch-depth: 0
 
-      - uses: gittools/actions/gitversion/setup@v1.1.1
-        with:
-          versionSpec: '5.x'
+#       - uses: gittools/actions/gitversion/setup@v1.1.1
+#         with:
+#           versionSpec: '5.x'
 
-      - id: version_step
-        uses: gittools/actions/gitversion/execute@v1.1.1
+#       - id: version_step
+#         uses: gittools/actions/gitversion/execute@v1.1.1
 
-  build:
-    name: Build Container
-    needs: version
-    runs-on: ubuntu-latest
-    outputs:
-      DockerImage: "${{ inputs.image_name }}:${{ needs.version.outputs.GitVersion_SemVer }}"
-      DockerImageUrl: "https://github.com/${{ github.repository }}/pkgs/container/${{ inputs.image_name }}"
-    steps:
-      - uses: actions/checkout@v3
+#   build:
+#     name: Build Container
+#     needs: version
+#     runs-on: ubuntu-latest
+#     outputs:
+#       DockerImage: "${{ inputs.image_name }}:${{ needs.version.outputs.GitVersion_SemVer }}"
+#       DockerImageUrl: "https://github.com/${{ github.repository }}/pkgs/container/${{ inputs.image_name }}"
+#     steps:
+#       - uses: actions/checkout@v3
 
-      - name: Build image
-        run: |
-              docker build \
-                --no-cache \
-                -f ${{ inputs.image_name }}/Dockerfile \
-                -t ${{ inputs.registry }}/${{ inputs.image_name }}:${{ needs.version.outputs.GitVersion_SemVer }} \
-                -t ${{ inputs.registry }}/${{ inputs.image_name }}:latest \
-                --label "org.opencontainers.image.source=https://github.com/${{ github.repository }}" \
-                ./${{ inputs.image_name }}
+#       - name: Build image
+#         run: |
+#               docker build \
+#                 --no-cache \
+#                 -f ${{ inputs.image_name }}/Dockerfile \
+#                 -t ${{ inputs.registry }}/${{ inputs.image_name }}:${{ needs.version.outputs.GitVersion_SemVer }} \
+#                 -t ${{ inputs.registry }}/${{ inputs.image_name }}:latest \
+#                 --label "org.opencontainers.image.source=https://github.com/${{ github.repository }}" \
+#                 ./${{ inputs.image_name }}
 
-      - name: Login to GHCR
-        run: echo ${{ secrets.GH_TOKEN }} | docker login ghcr.io -u ${{ inputs.registry_user }} --password-stdin
+#       - name: Login to GHCR
+#         run: echo ${{ secrets.GH_TOKEN }} | docker login ghcr.io -u ${{ inputs.registry_user }} --password-stdin
 
-      - name: Push image to GHCR
-        run: docker push ${{ inputs.registry }}/${{ inputs.image_name }}:${{ needs.version.outputs.GitVersion_SemVer }}
+#       - name: Push image to GHCR
+#         run: docker push ${{ inputs.registry }}/${{ inputs.image_name }}:${{ needs.version.outputs.GitVersion_SemVer }}
 
-  release:
-    name: Create Release + Save Tag
-    needs: [version, build]
-    runs-on: ubuntu-latest
-    permissions:
-      contents: write
-      packages: write
-    steps:
-      - uses: actions/checkout@v3
-        with:
-          token: ${{ secrets.GH_TOKEN }}  # ✅ Ensure we can push
-          fetch-depth: 0
+#   release:
+#     name: Create Release + Save Tag
+#     needs: [version, build]
+#     runs-on: ubuntu-latest
+#     permissions:
+#       contents: write
+#       packages: write
+#     steps:
+#       - uses: actions/checkout@v3
+#         with:
+#           token: ${{ secrets.GH_TOKEN }}  # ✅ Ensure we can push
+#           fetch-depth: 0
 
-      - uses: actions/setup-dotnet@v4
-        with:
-          dotnet-version: 8.0.x
+#       - uses: actions/setup-dotnet@v4
+#         with:
+#           dotnet-version: 8.0.x
 
-      - id: changelog
-        uses: TriPSs/conventional-changelog-action@v5.1.0
-        with:
-          github-token: ${{ secrets.GH_TOKEN }}
-          output-file: "false"
-          preset: "conventionalcommits"
-          skip-git-pull: true
-          skip-commit: true
-          pre-release: true
-          fallback-version: v${{ needs.version.outputs.GitVersion_SemVer }}
-          release-count: 0
-          skip-on-empty: false
-          tag-prefix: "v"
+#       - id: changelog
+#         uses: TriPSs/conventional-changelog-action@v5.1.0
+#         with:
+#           github-token: ${{ secrets.GH_TOKEN }}
+#           output-file: "false"
+#           preset: "conventionalcommits"
+#           skip-git-pull: true
+#           skip-commit: true
+#           pre-release: true
+#           fallback-version: v${{ needs.version.outputs.GitVersion_SemVer }}
+#           release-count: 0
+#           skip-on-empty: false
+#           tag-prefix: "v"
 
-      - name: Create tag
-        uses: actions/github-script@v5
-        continue-on-error: true
-        with:
-          script: |
-                  github.rest.git.createRef({
-                    owner: context.repo.owner,
-                    repo: context.repo.repo,
-                    ref: 'refs/tags/${{ needs.version.outputs.GitVersion_SemVer }}',
-                    sha: context.sha
-                  }) || true
+#       - name: Create tag
+#         uses: actions/github-script@v5
+#         continue-on-error: true
+#         with:
+#           script: |
+#                   github.rest.git.createRef({
+#                     owner: context.repo.owner,
+#                     repo: context.repo.repo,
+#                     ref: 'refs/tags/${{ needs.version.outputs.GitVersion_SemVer }}',
+#                     sha: context.sha
+#                   }) || true
 
-      - name: Create GitHub Release
-        uses: ncipollo/release-action@v1
-        with:
-          skipIfReleaseExists: true
-          name: v${{ needs.version.outputs.GitVersion_SemVer }}
-          tag: v${{ needs.version.outputs.GitVersion_SemVer }}
-          body: "${{ steps.changelog.outputs.clean_changelog }}\n\n### Docker image\n- [${{ needs.build.outputs.DockerImage }}](${{ needs.build.outputs.DockerImageUrl }})"
-          makeLatest: true
+#       - name: Create GitHub Release
+#         uses: ncipollo/release-action@v1
+#         with:
+#           skipIfReleaseExists: true
+#           name: v${{ needs.version.outputs.GitVersion_SemVer }}
+#           tag: v${{ needs.version.outputs.GitVersion_SemVer }}
+#           body: "${{ steps.changelog.outputs.clean_changelog }}\n\n### Docker image\n- [${{ needs.build.outputs.DockerImage }}](${{ needs.build.outputs.DockerImageUrl }})"
+#           makeLatest: true
 
-      - name: Save version to .latest-version
-        run: echo "${{ needs.version.outputs.GitVersion_SemVer }}" > .latest-version
+#       - name: Save version to .latest-version
+#         run: echo "${{ needs.version.outputs.GitVersion_SemVer }}" > .latest-version
 
-      - name: Commit and push .latest-version to calling repo
-        run:  |
-              git config user.name "CI Bot"
-              git config user.email "ci@centhro.io"
-              git switch $(git rev-parse --abbrev-ref HEAD)  # Ensure correct branch
-              git add .latest-version
-              git commit -m "ci: update latest version to ${{ needs.version.outputs.GitVersion_SemVer }}" || echo "No changes"
-              git push
+#       - name: Commit and push .latest-version to calling repo
+#         run:  |
+#               git config user.name "CI Bot"
+#               git config user.email "ci@centhro.io"
+#               git switch $(git rev-parse --abbrev-ref HEAD)  # Ensure correct branch
+#               git add .latest-version
+#               git commit -m "ci: update latest version to ${{ needs.version.outputs.GitVersion_SemVer }}" || echo "No changes"
+#               git push
       
